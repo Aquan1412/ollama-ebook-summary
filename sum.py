@@ -3,7 +3,7 @@ import requests, argparse, traceback
 from typing import Dict, Any, Tuple, Optional, List
 from urllib.parse import urljoin
 from pathlib import Path
-
+csv.field_size_limit(sys.maxsize)
 
 class Config:
     """Centralized access to configuration parameters."""
@@ -324,7 +324,7 @@ def process_entry(
 
     payload = {
         "model": model,
-        "prompt": f"{prompt}\n```{clean_text}```",
+        "prompt": f"```{clean_text}```\n\n{prompt}",
         "stream": False,
     }
 
@@ -786,7 +786,7 @@ def main():
     filename = os.path.basename(input_file)
     filename_no_ext, _ = os.path.splitext(filename)
     sanitized_model = sanitize_model_name(model)
-    orgmode_file = f"{filename_no_ext}_{sanitized_model}.org"
+    orgmode_file = f"{filename_no_ext}.org"
     csv_file = f"{filename_no_ext}_{sanitized_model}.csv"
 
     # Only write fresh orgmode header if not continuing
