@@ -4,6 +4,7 @@ from typing import Dict, Any, Tuple, Optional, List
 from urllib.parse import urljoin
 from pathlib import Path
 
+
 class Config:
     """Centralized access to configuration parameters."""
 
@@ -18,15 +19,17 @@ class Config:
             config_path = Path(config_path)
 
         self.config = self.load_config(config_path)
-        self.prompts = self.config.get('prompts', {})
-        self.title_prompt = self.config.get('title_generation', {}).get('prompt', "Default title prompt.")
-        self.defaults = self.config.get('defaults', {})
+        self.prompts = self.config.get("prompts", {})
+        self.title_prompt = self.config.get("title_generation", {}).get(
+            "prompt", "Default title prompt."
+        )
+        self.defaults = self.config.get("defaults", {})
 
     @staticmethod
     def load_config(config_path: Path) -> dict:
         """Load configuration from a YAML file."""
         try:
-            with config_path.open('r', encoding='utf-8') as file:
+            with config_path.open("r", encoding="utf-8") as file:
                 return yaml.safe_load(file)
         except FileNotFoundError:
             print(f"Configuration file {config_path} not found.")
@@ -40,15 +43,17 @@ class Config:
 
     def get_prompt(self, alias: str) -> str:
         """Retrieve prompt by alias from the configuration."""
-        prompt = self.prompts.get(alias, {}).get('prompt')
+        prompt = self.prompts.get(alias, {}).get("prompt")
         if not prompt:
             print(f"Prompt alias '{alias}' not found in configuration.")
             sys.exit(1)
         return prompt
 
+
 # -----------------------------
 # Error Handling
 # -----------------------------
+
 
 def handle_error(message: str, details: Dict[str, Any] = None, exit: bool = True):
     """
@@ -72,11 +77,15 @@ def handle_error(message: str, details: Dict[str, Any] = None, exit: bool = True
     if exit:
         sys.exit(1)
 
+
 # -----------------------------
 # API Interaction
 # -----------------------------
 
-def make_api_request(api_base: str, endpoint: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+def make_api_request(
+    api_base: str, endpoint: str, payload: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
     """Make a POST request to the specified API endpoint with detailed error handling."""
     full_url = urljoin(api_base + "/", endpoint)
 
@@ -91,11 +100,11 @@ def make_api_request(api_base: str, endpoint: str, payload: Dict[str, Any]) -> O
             "Request Method": "POST",
             "Request Headers": dict(response.request.headers),
             "Request Payload": payload,
-            "Response Status": getattr(response, 'status_code', None),
-            "Response Headers": getattr(response, 'headers', {}),
-            "Response Body": getattr(response, 'text', ''),
+            "Response Status": getattr(response, "status_code", None),
+            "Response Headers": getattr(response, "headers", {}),
+            "Response Body": getattr(response, "text", ""),
             "Exception Type": type(e).__name__,
-            "Exception Message": str(e)
+            "Exception Message": str(e),
         }
         handle_error("API request failed", error_details, exit=False)
 
@@ -109,7 +118,7 @@ def make_api_request(api_base: str, endpoint: str, payload: Dict[str, Any]) -> O
             "Response Headers": dict(response.headers),
             "Raw Response": response.text,
             "JSON Error": str(e),
-            "JSON Error Position": f"line {e.lineno}, column {e.colno}"
+            "JSON Error Position": f"line {e.lineno}, column {e.colno}",
         }
         handle_error("Failed to parse JSON response", error_details, exit=False)
 
@@ -120,46 +129,66 @@ def make_api_request(api_base: str, endpoint: str, payload: Dict[str, Any]) -> O
             "Request Payload": payload,
             "Exception Type": type(e).__name__,
             "Exception Message": str(e),
-            "Traceback": traceback.format_exc()
+            "Traceback": traceback.format_exc(),
         }
         handle_error("Unexpected error during API request", error_details, exit=False)
 
     return None
 
+
 # -----------------------------
 # Text Sanitization
 # -----------------------------
 
+
 def sanitize_text(text: str) -> str:
     """Sanitize the input text by replacing unwanted characters."""
-    #text = re.sub(r'!', '.', text)
-    #text = re.sub(r'%', ' percent', text)
+    # text = re.sub(r'!', '.', text)
+    # text = re.sub(r'%', ' percent', text)
     return text.strip()
+
 
 # -----------------------------
 # Title Generation and Uniqueness
 # -----------------------------
 
-def generate_title(api_base: str, model: str, clean_text: str, title_prompt: str, config: Config) -> Optional[str]:
+
+def generate_title(
+    api_base: str, model: str, clean_text: str, title_prompt: str, config: Config
+) -> Optional[str]:
     """Generate a unique title using the specified API and return only the first line."""
     payload = {
         "model": model,
         "prompt": f"```{clean_text}```\n\n{title_prompt}",
-        "stream": False
+        "stream": False,
     }
     result = make_api_request(api_base, "generate", payload)
     if result:
         # Split response by newlines and return only first line, stripped of whitespace
-        return result.get("response", "").strip().split('\n')[0]
+        return result.get("response", "").strip().split("\n")[0]
     return None
 
-def get_unique_title(original_title: str, clean_text: str, previous_original_title: str, api_base: str, title_prompt: str, config: Config) -> Tuple[str, bool]:
+
+def get_unique_title(
+    original_title: str,
+    clean_text: str,
+    previous_original_title: str,
+    api_base: str,
+    title_prompt: str,
+    config: Config,
+) -> Tuple[str, bool]:
     """Ensure the title is unique, generate a new one if necessary."""
     if original_title and original_title != previous_original_title:
         return original_title, False
 
     for _ in range(5):
-        generated_title = generate_title(api_base, config.defaults.get('title', 'DEFAULT_TITLE_MODEL'), clean_text, title_prompt, config)
+        generated_title = generate_title(
+            api_base,
+            config.defaults.get("title", "DEFAULT_TITLE_MODEL"),
+            clean_text,
+            title_prompt,
+            config,
+        )
         if generated_title and generated_title != previous_original_title:
             return generated_title, True
 
@@ -168,28 +197,35 @@ def get_unique_title(original_title: str, clean_text: str, previous_original_tit
     print(f"Title generation failed. Using fallback title: {fallback_title}")
     return fallback_title, True
 
+
 # -----------------------------
 # Text Formatting
 # -----------------------------
 
+
 def bold_text_before_colon(text: str) -> str:
     """Bold any text before the first colon that isn't already bolded."""
-    pattern = r'^([ \t]*-[ \t]*)([a-zA-Z].*?):'
-    replacement = r'\1**\2:**'
+    pattern = r"^([ \t]*-[ \t]*)([a-zA-Z].*?):"
+    replacement = r"\1**\2:**"
     return re.sub(pattern, replacement, text)
+
 
 # -----------------------------
 # Output Writing
 # -----------------------------
-def write_orgmode_header(md_out, filename_no_ext: str, model: str, sanitized_model: str, api_base: str):
+def write_orgmode_header(
+    md_out, filename_no_ext: str, model: str, sanitized_model: str, api_base: str
+):
     """Write the initial headers and model information to the Orgmode file."""
-    md_out.write(f"* {filename_no_ext}\n\n")
-    #md_out.write(f"## {model}\n\n")  # Use the original model name for display
+    md_out.write(f"* {filename_no_ext}\n")
+    # md_out.write(f"## {model}\n\n")  # Use the original model name for display
+
 
 # -----------------------------
 # Global or External Variables for ToC
 # -----------------------------
 toc_entries = []  # Will collect (level, heading_text) as we go
+
 
 def write_orgmode_entry(md_out, heading: str, content: str, verbose: bool = False):
     """Write a single entry to the Orgmode file and optionally print to console."""
@@ -197,61 +233,99 @@ def write_orgmode_entry(md_out, heading: str, content: str, verbose: bool = Fals
     # e.g. "### Some Heading" => heading_level = 3
     heading_level = 0
     for ch in heading:
-        if ch == '*':
+        if ch == "*":
             heading_level += 1
         else:
             break
 
     # Extract the actual heading text (after the '#' characters and space)
-    heading_text = heading.lstrip('*').strip()
+    heading_text = heading.lstrip("*").strip()
 
     # Store heading and level to build the ToC later
     toc_entries.append((heading_level, heading_text))
 
     # Write out the heading + content
-    orgmode_text = f"{heading}\n\n{content}\n\n"
+    orgmode_text = f"{heading}\n{content}"
     md_out.write(orgmode_text)
     if verbose:
         print(orgmode_text)
 
+
 def write_csv_header(writer):
     """Write the CSV header with the specified format."""
-    writer.writerow(["chapter", "level", "title", "text", "text.len", "summary", "summary.len", "time"])
+    writer.writerow(
+        [
+            "chapter",
+            "level",
+            "title",
+            "text",
+            "text.len",
+            "summary",
+            "summary.len",
+            "time",
+        ]
+    )
 
-def write_csv_entry(writer, unique_title: str, text: str, summary: str, elapsed_time: float, is_chapter: bool, heading_level: int):
+
+def write_csv_entry(
+    writer,
+    unique_title: str,
+    text: str,
+    summary: str,
+    elapsed_time: float,
+    is_chapter: bool,
+    heading_level: int,
+):
     """Write entry with the specified format."""
     # Replace newlines with escaped newlines
-    escaped_summary = summary.replace('\n', '\\n')
-    writer.writerow([
-        is_chapter, 
-        heading_level, 
-        unique_title, 
-        text, 
-        len(text), 
-        escaped_summary, 
-        len(summary), 
-        elapsed_time
-    ])
+    escaped_summary = summary.replace("\n", "\\n")
+    writer.writerow(
+        [
+            is_chapter,
+            heading_level,
+            unique_title,
+            text,
+            len(text),
+            escaped_summary,
+            len(summary),
+            elapsed_time,
+        ]
+    )
+
 
 # -----------------------------
 # Processing Logic
 # -----------------------------
 
-def process_entry(clean_text: str, title: str, config: Config, previous_original_title: str, api_base: str, model: str, prompt_alias: str, ptitle: str) -> Tuple[str, bool, str, float, int, str]:
+
+def process_entry(
+    clean_text: str,
+    title: str,
+    config: Config,
+    previous_original_title: str,
+    api_base: str,
+    model: str,
+    prompt_alias: str,
+    ptitle: str,
+) -> Tuple[str, bool, str, float, int, str]:
     """Process a single text entry and return the processed data."""
-    unique_title, was_generated = get_unique_title(title, clean_text, previous_original_title, api_base, ptitle, config)
-    
+    unique_title, was_generated = get_unique_title(
+        title, clean_text, previous_original_title, api_base, ptitle, config
+    )
+
     # Choose the appropriate prompt based on text length
     if len(clean_text) < 1000:
         prompt = config.get_prompt("concise")
-        model = config.defaults.get('general', model)  # Falls back to passed model if 'general' not found
+        model = config.defaults.get(
+            "general", model
+        )  # Falls back to passed model if 'general' not found
     else:
         prompt = config.get_prompt(prompt_alias)
 
     payload = {
         "model": model,
-        "prompt": f"```{clean_text}```\n\n{prompt}",
-        "stream": False
+        "prompt": f"{prompt}\n```{clean_text}```",
+        "stream": False,
     }
 
     start_time = time.time()
@@ -262,56 +336,78 @@ def process_entry(clean_text: str, title: str, config: Config, previous_original
         output = response_json.get("response", "").strip()
     else:
         output = "Error: Failed to generate output."
-    
+
     output = bold_text_before_colon(output)
     elapsed_time = end_time - start_time
     size = len(output)
-    return unique_title, was_generated, output, elapsed_time, size, title  # Return the original title as well
+    return (
+        unique_title,
+        was_generated,
+        output,
+        elapsed_time,
+        size,
+        title,
+    )  # Return the original title as well
+
 
 def sanitize_model_name(model: str) -> str:
     # Truncate everything before '/' if present
-    model = model.split(':')[-1]
+    model = model.split(":")[-1]
     # Remove special characters without replacement, except '_'
-    return re.sub(r'[^a-zA-Z0-9_]+', '', model)
+    return re.sub(r"[^a-zA-Z0-9_]+", "", model)
 
-def determine_header_level(row, default_level=3):
+
+def determine_header_level(row, default_level=2):
     """Determine the header level based on the 'level' column if present."""
-    level = row.get('level')
+    level = row.get("level")
     if level:
         try:
             level_num = int(level)
             # Add 2 to each level if first level is 0
             if level_num == 0:
-                return level_num + 2
+                return level_num + 1
             return level_num
         except ValueError:
-            print(f"Warning: Invalid level value '{level}'. Using default level {default_level}.")
+            print(
+                f"Warning: Invalid level value '{level}'. Using default level {default_level}."
+            )
     return default_level
+
 
 def process_title_with_split(title, level):
     """Process titles containing ` > `, creating appropriate headers."""
-    if ' > ' in title:
-        parts = title.split(' > ', 1)
+    if " > " in title:
+        parts = title.split(" > ", 1)
         return f"{'#' * level} {parts[0]}\n\n{'#' * (level + 1)} {parts[1]}"
     return f"{'#' * level} {title}"
 
-def process_csv_input(input_file: str, config: Config, api_base: str, model: str, 
-                    prompt_alias: str, ptitle: str, orgmode_file: str, 
-                    csv_file: str, verbose: bool = False, continue_processing: bool = False):
+
+def process_csv_input(
+    input_file: str,
+    config: Config,
+    api_base: str,
+    model: str,
+    prompt_alias: str,
+    ptitle: str,
+    orgmode_file: str,
+    csv_file: str,
+    verbose: bool = False,
+    continue_processing: bool = False,
+):
     """Process CSV input files with continuation support and ToC generation."""
 
     last_processed_text = ""
     mode = "w"
     orgmode_lines = []  # Store orgmode content in memory
-    toc_entries = []    # Store ToC entries
+    toc_entries = []  # Store ToC entries
 
     if continue_processing:
-        last_processed_text = get_last_processed_text(csv_file, 'csv')
+        last_processed_text = get_last_processed_text(csv_file, "csv")
         if last_processed_text:
             mode = "a"
             print(f"Continuing from text: {last_processed_text[:50]}...")
 
-    with open(csv_file, mode, newline="", encoding='utf-8') as csv_out:
+    with open(csv_file, mode, newline="", encoding="utf-8") as csv_out:
         writer = csv.writer(csv_out)
         seen_titles = set()
         if mode == "w":
@@ -320,15 +416,17 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
         skip_until_found = continue_processing and last_processed_text
         found_last_text = not skip_until_found
 
-        with open(input_file, "r", encoding='utf-8') as csv_in:
+        with open(input_file, "r", encoding="utf-8") as csv_in:
             reader = csv.DictReader(csv_in)
-            has_level_column = 'level' in reader.fieldnames
+            has_level_column = "level" in reader.fieldnames
             previous_original_title = ""
             current_level = 2
 
             # Process each row
             for row in reader:
-                text = next((row[key] for key in row if key.lower() == "text"), "").strip()
+                text = next(
+                    (row[key] for key in row if key.lower() == "text"), ""
+                ).strip()
                 clean = sanitize_text(text)
 
                 # Skip rows until we find the last processed text
@@ -336,7 +434,9 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                     if clean == last_processed_text:
                         skip_until_found = False
                         found_last_text = True
-                        print(f"Found last processed text: {last_processed_text[:50]}...")
+                        print(
+                            f"Found last processed text: {last_processed_text[:50]}..."
+                        )
                         continue
                     continue
 
@@ -344,24 +444,46 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                     continue
 
                 # Process row as normal
-                original_title = next((row[key] for key in row if key.lower() == "title"), "").strip()
+                original_title = next(
+                    (row[key] for key in row if key.lower() == "title"), ""
+                ).strip()
 
                 # Determine if this is a chapter BEFORE title generation
-                is_chapter = original_title and original_title != previous_original_title
+                is_chapter = (
+                    original_title and original_title != previous_original_title
+                )
 
                 if original_title == previous_original_title:
-                    unique_title, was_generated, output, elapsed_time, size, _ = process_entry(
-                        clean, "", config, previous_original_title, api_base, model, prompt_alias, ptitle
+                    unique_title, was_generated, output, elapsed_time, size, _ = (
+                        process_entry(
+                            clean,
+                            "",
+                            config,
+                            previous_original_title,
+                            api_base,
+                            model,
+                            prompt_alias,
+                            ptitle,
+                        )
                     )
                 else:
-                    unique_title, was_generated, output, elapsed_time, size, _ = process_entry(
-                        clean, original_title, config, previous_original_title, api_base, model, prompt_alias, ptitle
+                    unique_title, was_generated, output, elapsed_time, size, _ = (
+                        process_entry(
+                            clean,
+                            original_title,
+                            config,
+                            previous_original_title,
+                            api_base,
+                            model,
+                            prompt_alias,
+                            ptitle,
+                        )
                     )
 
                 if has_level_column:
                     base_level = determine_header_level(row)
                 else:
-                    base_level = 3  # Default to level 3 if no level column
+                    base_level = 2  # Default to level 3 if no level column
 
                 if was_generated:
                     current_level = base_level + 1
@@ -369,8 +491,8 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                     current_level = base_level
 
                 # Handle split titles and create heading
-                if ' > ' in unique_title:
-                    parts = unique_title.split(' > ', 1)
+                if " > " in unique_title:
+                    parts = unique_title.split(" > ", 1)
                     heading = f"{'*' * current_level} {parts[0]}\n\n{'#' * (current_level + 1)} {parts[1]}"
                     # Add both parts to ToC
                     toc_entries.append((current_level, parts[0]))
@@ -383,13 +505,13 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                 # Store orgmode content
                 orgmode_block = f"{heading}\n{output}\n"
                 orgmode_lines.append(orgmode_block)
-                
+
                 if verbose:
                     print(orgmode_block)
 
                 # Add title to seen titles
                 seen_titles.add(unique_title)
-                
+
                 write_csv_entry(
                     writer,
                     unique_title,
@@ -397,7 +519,7 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                     output,
                     elapsed_time,
                     is_chapter,
-                    current_level
+                    current_level,
                 )
 
                 # Update previous_original_title only if the current title wasn't generated
@@ -405,25 +527,27 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                     previous_original_title = original_title
 
     # Generate ToC
-    toc_content = generate_toc(toc_entries)
+    # toc_content = generate_toc(toc_entries)
 
     # Read existing content if in append mode
     existing_content = ""
     if mode == "a":
         try:
-            with open(orgmode_file, 'r', encoding='utf-8') as md_in:
+            with open(orgmode_file, "r", encoding="utf-8") as md_in:
                 existing_content = md_in.read()
         except FileNotFoundError:
             pass
 
     # Write final orgmode file
-    with open(orgmode_file, 'w', encoding='utf-8') as md_out:
+    with open(orgmode_file, "w", encoding="utf-8") as md_out:
         if mode == "w":
             filename_no_ext = os.path.splitext(os.path.basename(input_file))[0]
             sanitized_model = sanitize_model_name(model)
-            write_orgmode_header(md_out, filename_no_ext, model, sanitized_model, api_base)
+            write_orgmode_header(
+                md_out, filename_no_ext, model, sanitized_model, api_base
+            )
             # Write ToC
-            md_out.write(toc_content + "\n")
+            # md_out.write(toc_content + "\n")
             # Write content
             md_out.write("\n".join(orgmode_lines))
         else:
@@ -432,51 +556,64 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
             # Add new content
             md_out.write("\n".join(orgmode_lines))
 
+
 def generate_toc(toc_entries: List[Tuple[int, str]]) -> str:
     """Generate Table of Contents from collected entries."""
     toc_lines = ["** Table of Contents"]
-    
+
     for level, text in toc_entries:
         # Calculate indentation (2 spaces per level)
         indent = " " * ((level - 2) * 2)  # Subtract 2 since we start at ## level
         # Add ToC entry
         toc_lines.append(f"{indent}- [[{text}]]")
-    
+
     return "\n".join(toc_lines) + "\n"
 
 
-def process_text_input(input_file: str, config: Config, api_base: str, model: str, 
-                      prompt_alias: str, ptitle: str, orgmode_file: str, 
-                      csv_file: str, verbose: bool = False, 
-                      continue_processing: bool = False):
+def process_text_input(
+    input_file: str,
+    config: Config,
+    api_base: str,
+    model: str,
+    prompt_alias: str,
+    ptitle: str,
+    orgmode_file: str,
+    csv_file: str,
+    verbose: bool = False,
+    continue_processing: bool = False,
+):
     """Process plain text input files with continuation support."""
     mode = "a" if continue_processing else "w"
     last_processed_text = ""
 
     if continue_processing:
-        last_processed_text = get_last_processed_text(csv_file, 'txt')  # Changed from title to text
+        last_processed_text = get_last_processed_text(
+            csv_file, "txt"
+        )  # Changed from title to text
         print(f"DEBUG: Continuing from text: {last_processed_text[:50]}...")
 
-    with open(csv_file, mode, newline="", encoding='utf-8') as csv_out:
+    with open(csv_file, mode, newline="", encoding="utf-8") as csv_out:
         writer = csv.writer(csv_out)
         if mode == "w":
             write_csv_header(writer)
 
-        with open(input_file, "r", encoding='utf-8') as txt_in:
+        with open(input_file, "r", encoding="utf-8") as txt_in:
             previous_original_title = ""
             looking_for_start = bool(continue_processing and last_processed_text)
             print(f"DEBUG: looking_for_start initial state: {looking_for_start}")
 
-            with open(orgmode_file, mode, encoding='utf-8') as md_out:
+            with open(orgmode_file, mode, encoding="utf-8") as md_out:
                 if mode == "w":
                     filename_no_ext = os.path.splitext(os.path.basename(input_file))[0]
                     sanitized_model = sanitize_model_name(model)
-                    write_orgmode_header(md_out, filename_no_ext, model, sanitized_model, api_base)
+                    write_orgmode_header(
+                        md_out, filename_no_ext, model, sanitized_model, api_base
+                    )
 
                 for line in txt_in:
-                    trimmed = line.strip().strip('()')
+                    trimmed = line.strip().strip("()")
                     clean = sanitize_text(trimmed)
-                    extracted_title = clean[:150].strip().split('+')[0].strip()
+                    extracted_title = clean[:150].strip().split("+")[0].strip()
                     if looking_for_start:
                         if clean == last_processed_text:
                             print("DEBUG: Found matching text, resuming processing")
@@ -485,31 +622,56 @@ def process_text_input(input_file: str, config: Config, api_base: str, model: st
                             print("DEBUG: Skipping this text")
                         continue
 
-                    unique_title, was_generated, output, elapsed_time, size, original_title = process_entry(
-                        clean, extracted_title, config, previous_original_title, 
-                        api_base, model, prompt_alias, ptitle
+                    (
+                        unique_title,
+                        was_generated,
+                        output,
+                        elapsed_time,
+                        size,
+                        original_title,
+                    ) = process_entry(
+                        clean,
+                        extracted_title,
+                        config,
+                        previous_original_title,
+                        api_base,
+                        model,
+                        prompt_alias,
+                        ptitle,
                     )
                     unique_title = unique_title.strip('"')
 
                     # Remove the title and the '+' from the text
                     title_pattern = re.escape(unique_title)
-                    title_plus_pattern = f'(?:"{title_pattern}"|{title_pattern})\\s*\\+\\s*'
-                    clean_text = re.sub(f'^{title_plus_pattern}', '', clean, count=1).strip()
+                    title_plus_pattern = (
+                        f'(?:"{title_pattern}"|{title_pattern})\\s*\\+\\s*'
+                    )
+                    clean_text = re.sub(
+                        f"^{title_plus_pattern}", "", clean, count=1
+                    ).strip()
 
-                    heading = f"**** {unique_title}" if was_generated else f"*** {unique_title}"
+                    heading = (
+                        f"**** {unique_title}"
+                        if was_generated
+                        else f"*** {unique_title}"
+                    )
                     write_orgmode_entry(md_out, heading, output, verbose)
-                    write_csv_entry(writer, unique_title, clean_text, output, elapsed_time, False, 3)
+                    write_csv_entry(
+                        writer, unique_title, clean_text, output, elapsed_time, False, 3
+                    )
 
                     previous_original_title = original_title
+
 
 # -----------------------------
 # Continuation logic
 # -----------------------------
 
+
 def get_last_processed_text(csv_file: str, file_type: str) -> str:
     """Get the text of the last processed entry from the CSV file."""
     try:
-        with open(csv_file, 'r', newline='', encoding='utf-8') as f:
+        with open(csv_file, "r", newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             headers = next(reader)  # Skip header row
             text_col_idx = 3
@@ -523,9 +685,11 @@ def get_last_processed_text(csv_file: str, file_type: str) -> str:
     except (FileNotFoundError, IndexError):
         return ""
 
+
 # -----------------------------
 # Help Display
 # -----------------------------
+
 
 def display_help():
     """Display help message."""
@@ -555,23 +719,49 @@ def display_help():
     """
     print(help_message)
 
+
 # -----------------------------
 # Main Function
 # -----------------------------
 
+
 def main():
     config = Config()
-    parser = argparse.ArgumentParser(description="Process and summarize text or CSV files using a specified model.", add_help=False)
+    parser = argparse.ArgumentParser(
+        description="Process and summarize text or CSV files using a specified model.",
+        add_help=False,
+    )
 
     # Optional Arguments
-    parser.add_argument('-m', '--model', default=config.defaults.get('summary', 'DEFAULT_SUMMARY_MODEL'), help='Model name to use for generation')
-    parser.add_argument('-c', '--csv', action='store_true', help='Process a CSV file')
-    parser.add_argument('-t', '--txt', action='store_true', help='Process a text file')
-    parser.add_argument('--help', action='store_true', help='Show help message and exit')
-    parser.add_argument('--continue', action='store_true', help='Continue processing from last processed row')
-    parser.add_argument('-p', '--prompt', default=config.defaults.get('prompt', 'DEFAULT_PROMPT_ALIAS'), help='Alias of the prompt to use from config')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Display orgmode output as it is generated')
-    parser.add_argument('input_file', nargs='?', help='Input file path')
+    parser.add_argument(
+        "-m",
+        "--model",
+        default=config.defaults.get("summary", "DEFAULT_SUMMARY_MODEL"),
+        help="Model name to use for generation",
+    )
+    parser.add_argument("-c", "--csv", action="store_true", help="Process a CSV file")
+    parser.add_argument("-t", "--txt", action="store_true", help="Process a text file")
+    parser.add_argument(
+        "--help", action="store_true", help="Show help message and exit"
+    )
+    parser.add_argument(
+        "--continue",
+        action="store_true",
+        help="Continue processing from last processed row",
+    )
+    parser.add_argument(
+        "-p",
+        "--prompt",
+        default=config.defaults.get("prompt", "DEFAULT_PROMPT_ALIAS"),
+        help="Alias of the prompt to use from config",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Display orgmode output as it is generated",
+    )
+    parser.add_argument("input_file", nargs="?", help="Input file path")
 
     args = parser.parse_args()
 
@@ -585,13 +775,13 @@ def main():
     if not (args.csv ^ args.txt):
         handle_error("Error: You must specify either --csv or --txt.")
 
-    processing_mode = 'csv' if args.csv else 'txt'
+    processing_mode = "csv" if args.csv else "txt"
     model = args.model
     input_file = args.input_file
     prompt_alias = args.prompt
     api_base = "http://localhost:11434/api"
     ptitle = config.title_prompt
-    should_continue = getattr(args, 'continue', False)
+    should_continue = getattr(args, "continue", False)
 
     filename = os.path.basename(input_file)
     filename_no_ext, _ = os.path.splitext(filename)
@@ -601,18 +791,40 @@ def main():
 
     # Only write fresh orgmode header if not continuing
     if not should_continue:
-        with open(orgmode_file, "w", encoding='utf-8') as md_out:
-            write_orgmode_header(md_out, filename_no_ext, model, sanitized_model, api_base)
+        with open(orgmode_file, "w", encoding="utf-8") as md_out:
+            write_orgmode_header(
+                md_out, filename_no_ext, model, sanitized_model, api_base
+            )
 
-    if processing_mode == 'csv':
-        process_csv_input(input_file, config, api_base, model, prompt_alias, 
-                        ptitle, orgmode_file, csv_file, args.verbose, 
-                        should_continue)
+    if processing_mode == "csv":
+        process_csv_input(
+            input_file,
+            config,
+            api_base,
+            model,
+            prompt_alias,
+            ptitle,
+            orgmode_file,
+            csv_file,
+            args.verbose,
+            should_continue,
+        )
     else:
-        process_text_input(input_file, config, api_base, model, prompt_alias, 
-                        ptitle, orgmode_file, csv_file, args.verbose,
-                        should_continue)
+        process_text_input(
+            input_file,
+            config,
+            api_base,
+            model,
+            prompt_alias,
+            ptitle,
+            orgmode_file,
+            csv_file,
+            args.verbose,
+            should_continue,
+        )
 
     print(f"Processing completed. Output saved to {orgmode_file} and {csv_file}.")
+
+
 if __name__ == "__main__":
     main()
