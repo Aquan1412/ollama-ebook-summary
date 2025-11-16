@@ -1,6 +1,6 @@
 defaults:
   prompt: blurb
-  summary: gemma3:4b   #cognitivetech/obook_summary:q4_k_m
+  summary: gemma3n:e2b   #gemma3:4b   #cognitivetech/obook_summary:q4_k_m
   general: gemma3:1b
   title: gemma3:1b   #cognitivetech/obook_title:q4_k_m  # default model for title generation
 prompts:
@@ -35,32 +35,35 @@ prompts:
       to write a short summary for the story provided below. It should be short,
       around 4 or 5 sentences, and not overly philosophical. It must NOT reveal any major plot twists, character deaths,
       or the ending. It should set up the initial conflict and main character
-      without giving away the resolution. Do not preface your text with something like here
-      is the question you asked for, just print the summary.'
+      without giving away the resolution. Do not preface your text with and introduction (something like: here
+      is the summary you asked for). Your response must begin *immediately* with the first word of the preview
+      blurb. Provide *only* the single-paragraph blurb and nothing else.'
+  blurbNew:
+    prompt: 'Act as an expert book editor and marketing copywriter. Your sole task is to write a short summary or blurb for the short story provided below.
+    Here are the strict rules for the blurb:
+    * **Length:** It MUST be short, between 3 and 4 sentences.
+    * **NO SPOILERS:** It must NOT reveal any major plot twists, character deaths, or the ending of the story. It should set up the initial conflict and main character without giving away the resolution.
+    Your response must begin *immediately* with the first word of the preview. Provide *only* the single-paragraph preview and nothing else.'
   article:
-    prompt: 'Act as an expert science communicator. Your sole task is to write a concise summary of the scientific article provided below.
-
-Here are your strict instructions:
-* **Length:** The summary MUST be short, consisting of only one or two paragraphs.
-* **Audience:** Write the summary for an intelligent reader who is *not* an expert in this specific field. (e.g., a scientist in a different discipline).
-* **Focus:** You MUST identify and clearly state:
-    1.  The core research question or the problem the article addresses.
-    2.  The main findings or key results.
-    3.  The principal conclusion or the so what (the significance of the findings).
-* **What to AVOID:**
-    * You must **NOT** just copy or rephrase the abstract of the article.
-    * You must **NOT** include detailed experimental methods, specific data points, or complex statistical jargon.
-    * You must **NOT** discuss the authors, the journal, or the bibliography. Do not preface your text with something like here
-      is the question you asked for, just print the summary.'
+    prompt: 'Act as an expert science communicator. Your sole task is to write a concise summary of the scientific article provided above.
+    Here are your strict instructions:
+    * **Length:** The summary MUST be short, consisting of only one or two paragraphs.
+    * **Audience:** Write the summary for an intelligent reader who is *not* an expert in this specific field. (e.g., a scientist in a different discipline).
+    * **Focus:** You MUST identify and clearly state:
+        1.  The core research question or the problem the article addresses.
+	2.  The main findings or key results.
+        3.  The principal conclusion or the so what (the significance of the findings).
+    * **What to AVOID:**
+        * You must **NOT** just copy or rephrase the abstract of the article.
+	* You must **NOT** include detailed experimental methods, specific data points, or complex statistical jargon.
+	 You must **NOT** discuss the authors, the journal, or the bibliography. Do not preface your text with something like here is the question you asked for, just print the summary.'
   sdw:
-    prompt: 'Act as an expert magazine editor. Your sole task is to write a short, one-paragraph preview for the popular science article provided below.
-The goal of this preview is to capture the readers curiosity and help them decide if they want to read the full article.
-
-Here are your strict instructions:
-* **Length:** MUST be a single, concise paragraph (around 3-5 sentences).
-* **Content:** You MUST identify the articles main topic and the central question or mystery it explores.
-* **Tone:** The tone should be engaging, accessible, and intriguing, but not sensationalistic.
-* **What to AVOID:** You must **NOT** give away the final answers, specific conclusions, or detailed findings. The preview should pose the central question or problem, not provide the solution.
-* **Never** preface your answer with an introduction (like: here is preview of the article you asked for), just print the summary.'
+    prompt: 'Act as an expert magazine editor. Your sole task is to write a short, one-paragraph preview for the popular science article provided below. Never preface your answer with an introduction (like: here is preview of the article you asked for), just print the summary.
+    Here are your strict instructions:
+    * **Length:** MUST be a single, concise paragraph (around 3-5 sentences).
+    * **Content:** You MUST identify the articles main topic and the central question or mystery it explores.
+    * **Tone:** The tone should be engaging, accessible, and intriguing, but not sensationalistic.
+    * **What to AVOID:** You must **NOT** give away the final answers, specific conclusions, or detailed findings. The preview should pose the central question or problem, not provide the solution.
+    Your response must begin *immediately* with the first word of the preview. Provide *only* the single-paragraph preview and nothing else.'
 title_generation:
   prompt: Write 8-11 words describing this text.
