@@ -181,38 +181,38 @@ def bold_text_before_colon(text: str) -> str:
 # -----------------------------
 # Output Writing
 # -----------------------------
-def write_markdown_header(md_out, filename_no_ext: str, model: str, sanitized_model: str, api_base: str):
-    """Write the initial headers and model information to the Markdown file."""
-    md_out.write(f"# {filename_no_ext}\n\n")
-    md_out.write(f"## {model}\n\n")  # Use the original model name for display
+def write_orgmode_header(md_out, filename_no_ext: str, model: str, sanitized_model: str, api_base: str):
+    """Write the initial headers and model information to the Orgmode file."""
+    md_out.write(f"* {filename_no_ext}\n\n")
+    #md_out.write(f"## {model}\n\n")  # Use the original model name for display
 
 # -----------------------------
 # Global or External Variables for ToC
 # -----------------------------
 toc_entries = []  # Will collect (level, heading_text) as we go
 
-def write_markdown_entry(md_out, heading: str, content: str, verbose: bool = False):
-    """Write a single entry to the Markdown file and optionally print to console."""
+def write_orgmode_entry(md_out, heading: str, content: str, verbose: bool = False):
+    """Write a single entry to the Orgmode file and optionally print to console."""
     # Sniff the heading level: count '#' characters from the left
     # e.g. "### Some Heading" => heading_level = 3
     heading_level = 0
     for ch in heading:
-        if ch == '#':
+        if ch == '*':
             heading_level += 1
         else:
             break
 
     # Extract the actual heading text (after the '#' characters and space)
-    heading_text = heading.lstrip('#').strip()
+    heading_text = heading.lstrip('*').strip()
 
     # Store heading and level to build the ToC later
     toc_entries.append((heading_level, heading_text))
 
     # Write out the heading + content
-    markdown_text = f"{heading}\n\n{content}\n\n"
-    md_out.write(markdown_text)
+    orgmode_text = f"{heading}\n\n{content}\n\n"
+    md_out.write(orgmode_text)
     if verbose:
-        print(markdown_text)
+        print(orgmode_text)
 
 def write_csv_header(writer):
     """Write the CSV header with the specified format."""
@@ -296,13 +296,13 @@ def process_title_with_split(title, level):
     return f"{'#' * level} {title}"
 
 def process_csv_input(input_file: str, config: Config, api_base: str, model: str, 
-                    prompt_alias: str, ptitle: str, markdown_file: str, 
+                    prompt_alias: str, ptitle: str, orgmode_file: str, 
                     csv_file: str, verbose: bool = False, continue_processing: bool = False):
     """Process CSV input files with continuation support and ToC generation."""
 
     last_processed_text = ""
     mode = "w"
-    markdown_lines = []  # Store markdown content in memory
+    orgmode_lines = []  # Store orgmode content in memory
     toc_entries = []    # Store ToC entries
 
     if continue_processing:
@@ -371,21 +371,21 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
                 # Handle split titles and create heading
                 if ' > ' in unique_title:
                     parts = unique_title.split(' > ', 1)
-                    heading = f"{'#' * current_level} {parts[0]}\n\n{'#' * (current_level + 1)} {parts[1]}"
+                    heading = f"{'*' * current_level} {parts[0]}\n\n{'#' * (current_level + 1)} {parts[1]}"
                     # Add both parts to ToC
                     toc_entries.append((current_level, parts[0]))
                     toc_entries.append((current_level + 1, parts[1]))
                 else:
-                    heading = f"{'#' * current_level} {unique_title}"
+                    heading = f"{'*' * current_level} {unique_title}"
                     # Add to ToC
                     toc_entries.append((current_level, unique_title))
 
-                # Store markdown content
-                markdown_block = f"{heading}\n\n{output}\n\n"
-                markdown_lines.append(markdown_block)
+                # Store orgmode content
+                orgmode_block = f"{heading}\n{output}\n"
+                orgmode_lines.append(orgmode_block)
                 
                 if verbose:
-                    print(markdown_block)
+                    print(orgmode_block)
 
                 # Add title to seen titles
                 seen_titles.add(unique_title)
@@ -411,44 +411,42 @@ def process_csv_input(input_file: str, config: Config, api_base: str, model: str
     existing_content = ""
     if mode == "a":
         try:
-            with open(markdown_file, 'r', encoding='utf-8') as md_in:
+            with open(orgmode_file, 'r', encoding='utf-8') as md_in:
                 existing_content = md_in.read()
         except FileNotFoundError:
             pass
 
-    # Write final markdown file
-    with open(markdown_file, 'w', encoding='utf-8') as md_out:
+    # Write final orgmode file
+    with open(orgmode_file, 'w', encoding='utf-8') as md_out:
         if mode == "w":
             filename_no_ext = os.path.splitext(os.path.basename(input_file))[0]
             sanitized_model = sanitize_model_name(model)
-            write_markdown_header(md_out, filename_no_ext, model, sanitized_model, api_base)
+            write_orgmode_header(md_out, filename_no_ext, model, sanitized_model, api_base)
             # Write ToC
-            md_out.write(toc_content + "\n\n")
+            md_out.write(toc_content + "\n")
             # Write content
-            md_out.write("\n".join(markdown_lines))
+            md_out.write("\n".join(orgmode_lines))
         else:
             # In append mode, preserve existing content
             md_out.write(existing_content)
             # Add new content
-            md_out.write("\n".join(markdown_lines))
+            md_out.write("\n".join(orgmode_lines))
 
 def generate_toc(toc_entries: List[Tuple[int, str]]) -> str:
     """Generate Table of Contents from collected entries."""
-    toc_lines = ["## Table of Contents"]
+    toc_lines = ["** Table of Contents"]
     
     for level, text in toc_entries:
-        # Create anchor-friendly slug
-        slug = re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
         # Calculate indentation (2 spaces per level)
         indent = " " * ((level - 2) * 2)  # Subtract 2 since we start at ## level
         # Add ToC entry
-        toc_lines.append(f"{indent}- [{text}](#{slug})")
+        toc_lines.append(f"{indent}- [[{text}]]")
     
-    return "\n".join(toc_lines) + "\n\n"
+    return "\n".join(toc_lines) + "\n"
 
 
 def process_text_input(input_file: str, config: Config, api_base: str, model: str, 
-                      prompt_alias: str, ptitle: str, markdown_file: str, 
+                      prompt_alias: str, ptitle: str, orgmode_file: str, 
                       csv_file: str, verbose: bool = False, 
                       continue_processing: bool = False):
     """Process plain text input files with continuation support."""
@@ -469,11 +467,11 @@ def process_text_input(input_file: str, config: Config, api_base: str, model: st
             looking_for_start = bool(continue_processing and last_processed_text)
             print(f"DEBUG: looking_for_start initial state: {looking_for_start}")
 
-            with open(markdown_file, mode, encoding='utf-8') as md_out:
+            with open(orgmode_file, mode, encoding='utf-8') as md_out:
                 if mode == "w":
                     filename_no_ext = os.path.splitext(os.path.basename(input_file))[0]
                     sanitized_model = sanitize_model_name(model)
-                    write_markdown_header(md_out, filename_no_ext, model, sanitized_model, api_base)
+                    write_orgmode_header(md_out, filename_no_ext, model, sanitized_model, api_base)
 
                 for line in txt_in:
                     trimmed = line.strip().strip('()')
@@ -498,8 +496,8 @@ def process_text_input(input_file: str, config: Config, api_base: str, model: st
                     title_plus_pattern = f'(?:"{title_pattern}"|{title_pattern})\\s*\\+\\s*'
                     clean_text = re.sub(f'^{title_plus_pattern}', '', clean, count=1).strip()
 
-                    heading = f"#### {unique_title}" if was_generated else f"### {unique_title}"
-                    write_markdown_entry(md_out, heading, output, verbose)
+                    heading = f"**** {unique_title}" if was_generated else f"*** {unique_title}"
+                    write_orgmode_entry(md_out, heading, output, verbose)
                     write_csv_entry(writer, unique_title, clean_text, output, elapsed_time, False, 3)
 
                     previous_original_title = original_title
@@ -572,7 +570,7 @@ def main():
     parser.add_argument('--help', action='store_true', help='Show help message and exit')
     parser.add_argument('--continue', action='store_true', help='Continue processing from last processed row')
     parser.add_argument('-p', '--prompt', default=config.defaults.get('prompt', 'DEFAULT_PROMPT_ALIAS'), help='Alias of the prompt to use from config')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Display markdown output as it is generated')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Display orgmode output as it is generated')
     parser.add_argument('input_file', nargs='?', help='Input file path')
 
     args = parser.parse_args()
@@ -598,23 +596,23 @@ def main():
     filename = os.path.basename(input_file)
     filename_no_ext, _ = os.path.splitext(filename)
     sanitized_model = sanitize_model_name(model)
-    markdown_file = f"{filename_no_ext}_{sanitized_model}.md"
+    orgmode_file = f"{filename_no_ext}_{sanitized_model}.org"
     csv_file = f"{filename_no_ext}_{sanitized_model}.csv"
 
-    # Only write fresh markdown header if not continuing
+    # Only write fresh orgmode header if not continuing
     if not should_continue:
-        with open(markdown_file, "w", encoding='utf-8') as md_out:
-            write_markdown_header(md_out, filename_no_ext, model, sanitized_model, api_base)
+        with open(orgmode_file, "w", encoding='utf-8') as md_out:
+            write_orgmode_header(md_out, filename_no_ext, model, sanitized_model, api_base)
 
     if processing_mode == 'csv':
         process_csv_input(input_file, config, api_base, model, prompt_alias, 
-                        ptitle, markdown_file, csv_file, args.verbose, 
+                        ptitle, orgmode_file, csv_file, args.verbose, 
                         should_continue)
     else:
         process_text_input(input_file, config, api_base, model, prompt_alias, 
-                        ptitle, markdown_file, csv_file, args.verbose,
+                        ptitle, orgmode_file, csv_file, args.verbose,
                         should_continue)
 
-    print(f"Processing completed. Output saved to {markdown_file} and {csv_file}.")
+    print(f"Processing completed. Output saved to {orgmode_file} and {csv_file}.")
 if __name__ == "__main__":
     main()
